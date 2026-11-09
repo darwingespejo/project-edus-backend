@@ -146,11 +146,20 @@ class Meta_model extends Model
 
     public function upcomingSessions()
     {
-        return $this->db->raw(
-            'SELECT ls.id, ls.title, ls.starts_at, ls.duration_min, ls.join_url, c.title course, u.name host
+        $sessions = $this->db->raw(
+            'SELECT ls.id, ls.title, ls.starts_at AS startsAt, ls.duration_min AS durationMin, ls.join_url AS joinUrl,
+                    (ls.starts_at <= NOW() AND DATE_ADD(ls.starts_at, INTERVAL ls.duration_min MINUTE) > NOW()) AS live,
+                    c.title course, u.name host
              FROM live_sessions ls JOIN courses c ON c.id = ls.course_id JOIN users u ON u.id = ls.host_id
-             WHERE ls.starts_at > DATE_SUB(NOW(), INTERVAL 1 HOUR) ORDER BY ls.starts_at'
+             WHERE DATE_ADD(ls.starts_at, INTERVAL ls.duration_min MINUTE) > NOW() ORDER BY ls.starts_at'
         )->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($sessions as &$session) {
+            $session['live'] = (bool)$session['live'];
+        }
+        unset($session);
+
+        return $sessions;
     }
 
     public function insertSession($id, $courseId, $hostId, $title, $startsAt, $durationMin, $room)
